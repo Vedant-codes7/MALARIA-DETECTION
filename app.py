@@ -68,4 +68,4 @@ interface = gr.Interface(
 # Launch the App
 # -------------------------------
 if __name__ == "__main__":
-    interface.launch()
+    interface.launch(enable_queue=False)
