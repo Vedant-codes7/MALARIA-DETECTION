@@ -1,5 +1,6 @@
 gradio==4.16.0
-tensorflow==2.15.0
-pillow==10.2.0
+tensorflow==2.16.1
+keras==3.3.3
 numpy==1.26.3
+pillow==10.2.0
 huggingface_hub==0.25.2
