@@ -1,71 +1,88 @@
-# -*- coding: utf-8 -*-
-"""Malaria Detection App - Corrected Version"""
-
 import gradio as gr
-import numpy as np
 import tensorflow as tf
+import numpy as np
 from PIL import Image
+import json
+import os
 
-# ✅ Load your trained model
-model = tf.keras.models.load_model('model.h5', compile=False)
+# Load model
+model = tf.keras.models.load_model("model.h5", compile=False)
 
-# -------------------------------
-# Image Preprocessing
-# -------------------------------
-def preprocess_image(image):
-    """Resize and normalize image"""
-    image = image.resize((150, 150))
-    img_array = np.array(image) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+# Stats file
+STATS_FILE = "stats.json"
 
-# -------------------------------
-# Prediction Logic (Fixed)
-# -------------------------------
-def predict(image):
-    """Run malaria detection prediction"""
-    if image is None:
-        return "⚠️ Please upload an image."
+# Load or create stats
+if os.path.exists(STATS_FILE):
+    with open(STATS_FILE, "r") as f:
+        stats = json.load(f)
+else:
+    stats = {"total": 0, "infected": 0, "uninfected": 0, "avg_conf": 0.0}
 
-    processed_img = preprocess_image(image)
-    prediction = model.predict(processed_img, verbose=0)[0][0]
-
-    # ✅ Fixed logic: flip conditions because model outputs 1 = Uninfected, 0 = Parasitized
-    if prediction > 0.5:
-        result = "✅ **UNINFECTED** (No Malaria)"
-        confidence = prediction * 100
-        color = "green"
+def update_stats(result, conf):
+    stats["total"] += 1
+    if "PARASITIZED" in result:
+        stats["infected"] += 1
     else:
-        result = "🦠 **PARASITIZED** (Malaria Detected)"
-        confidence = (1 - prediction) * 100
-        color = "red"
+        stats["uninfected"] += 1
+    # Update average confidence
+    stats["avg_conf"] = round((stats["avg_conf"] * (stats["total"] - 1) + conf) / stats["total"], 2)
+    with open(STATS_FILE, "w") as f:
+        json.dump(stats, f)
 
-    # Return formatted result with color & confidence
-    html_result = f"""
-    <div style='text-align:center; font-size:22px; color:{color}; font-weight:bold;'>
-        {result}<br>
-        <span style='font-size:18px; color:black;'>Confidence: {confidence:.2f}%</span>
-    </div>
+def predict(image):
+    if image is None:
+        return "Please upload an image", None, None, None, None
+
+    img = image.resize((150, 150))
+    img_array = np.array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    pred = model.predict(img_array)[0][0]
+    
+    if pred > 0.5:
+        result = " PARASITIZED (Malaria Detected)"
+        conf = round(pred * 100, 2)
+    else:
+        result = " Uninfected (Malaria not Detected)"
+        conf = round((1 - pred) * 100, 2)
+    
+    update_stats(result, conf)
+    
+    return result, f"{conf}%", stats["total"], stats["infected"], stats["uninfected"]
+
+def dashboard_view():
+    return f"""
+    <h3>📊 Dashboard Overview</h3>
+    <p><b>Total Analyses:</b> {stats['total']}</p>
+    <p><b>Uninfected:</b> {stats['uninfected']}</p>
+    <p><b>Infected:</b> {stats['infected']}</p>
+    <p><b>Average Confidence:</b> {stats['avg_conf']}%</p>
     """
-    return html_result
 
-# -------------------------------
-# Gradio UI
-# -------------------------------
-interface = gr.Interface(
-    fn=predict,
-    inputs=gr.Image(type="pil", label="🩸 Upload Blood Cell Image"),
-    outputs=gr.HTML(label="Diagnosis Result"),
-    title="🔬 Malaria Detection AI System",
-    description=(
-        "Upload a microscopic image of a blood cell, and this AI model will detect "
-        "whether it is **Parasitized** (Malaria detected) or **Uninfected** (Healthy)."
-    ),
-    theme="soft"
-)
+# Build Gradio app
+with gr.Blocks(theme="soft") as demo:
+    gr.Markdown("# 🔬 Malaria Detection AI System")
+    gr.Markdown("Upload a microscopic image to analyze and view live dashboard results.")
+    
+    with gr.Tabs():
+        with gr.TabItem("🩸 Detector"):
+            image = gr.Image(type="pil", label="Upload Image")
+            analyze_btn = gr.Button("Analyze")
+            result = gr.Textbox(label="Result")
+            confidence = gr.Textbox(label="Confidence")
+            total = gr.Number(label="Total Analyses", interactive=False)
+            infected = gr.Number(label="Infected Count", interactive=False)
+            uninfected = gr.Number(label="Uninfected Count", interactive=False)
+            
+            analyze_btn.click(
+                fn=predict,
+                inputs=image,
+                outputs=[result, confidence, total, infected, uninfected]
+            )
+        
+        with gr.TabItem("📊 Dashboard"):
+            refresh_btn = gr.Button("🔄 Refresh Dashboard")
+            dash = gr.HTML(value=dashboard_view())
+            refresh_btn.click(fn=lambda: dashboard_view(), outputs=dash)
 
-# -------------------------------
-# Launch the App
-# -------------------------------
-if __name__ == "__main__":
-    interface.launch()
+demo.launch()
+
