@@ -39,10 +39,10 @@ def predict(image):
     pred = model.predict(img_array)[0][0]
     
     if pred > 0.5:
-        result = " PARASITIZED (Malaria Detected)"
+        result = "✅ UNINFECTED (No Malaria)"
         conf = round(pred * 100, 2)
     else:
-        result = " Uninfected (Malaria not Detected)"
+        result = "🦠 PARASITIZED (Malaria Detected)"
         conf = round((1 - pred) * 100, 2)
     
     update_stats(result, conf)
