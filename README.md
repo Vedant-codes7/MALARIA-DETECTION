@@ -1,13 +1,14 @@
 ---
 title: Malaria Detection
-emoji: 🦀
-colorFrom: indigo
-colorTo: indigo
+emoji: 🔬
+colorFrom: red
+colorTo: blue
 sdk: gradio
-sdk_version: 5.49.1
+sdk_version: 4.16.0
 app_file: app.py
 pinned: false
-license: apache-2.0
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# Malaria Detection AI
+
+This model detects malaria parasites in blood cell images using transfer learning with VGG19.
